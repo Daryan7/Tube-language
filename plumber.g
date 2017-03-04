@@ -5,10 +5,10 @@
 using namespace std;
 
 // struct to store information about tokens
-typedef struct {
+struct Attrib {
     string kind;
     string text;
-} Attrib;
+};
 
 // function to fill token information (predeclaration)
 void zzcr_attr(Attrib *attr, int type, char *text);
@@ -99,21 +99,23 @@ int main() {
 >>
 
 #lexclass START
-#token SPACE "[\ \n]" << zzskip();>>
-#token TUNE "TUBE"
+#token TUBE "TUBE"
 #token CONNECTOR "CONNECTOR"
 #token SPLIT "SPLIT"
 #token MERGE "MERGE"
-#token LENGHT "LENGTH"
+#token LENGTH "LENGTH"
 #token DIAMETER "DIAMETER"
 #token WHILE "WHILE"
-#token ENDWHILE
+#token ENDWHILE "ENDWHILE"
 #token NOT "NOT"
 #token AND "AND"
 #token OR "OR"
-#token LPAREN "("
-#token RPAREN ")"
+#token LPAREN "\("
+#token RPAREN "\)"
 #token COMMA ","
+#token MINUS "\-"
+#token ADD "\+"
+#token MUL "\*"
 #token PUSH "PUSH"
 #token POP "POP"
 #token ARRAY "TUBEVECTOR OF"
@@ -124,20 +126,37 @@ int main() {
 #token LT "<"
 #token EQ "=="
 #token NUM "[0-9]+"
-#token ID "[a-zA-Z]"
+#token ID "[a-zA-Z][a-zA-Z0-9]*"
+#token SPACE "[\ \n]" << zzskip();>>
 
 plumber: (op)* <<#0=createASTlist(_sibling);>>;
 
 op : ID ASSIG^ funcTube
-    | LPAREN ID COMMA ID RPAREN ASSIG^ SPLIT funcTube
+    | LPAREN! ID COMMA! ID RPAREN! ASSIG^ funcTubes
+    | WHILE^ LPAREN! boolExpr RPAREN! (op)+ ENDWHILE!
     ;
 
-funcConnector: CONNECTOR^ expr;
+funcTubes: SPLIT^ funcTube;
+
+funcConnector: ID | CONNECTOR^ aritmeticExpr;
 
 funcTube : ID
     | MERGE^ funcTube funcConnector funcTube
-    | TUBE^ expr expr
+    | TUBE^ aritmeticExpr aritmeticExpr
     ;
 
-expr : NUM;
+boolExpr: andExpr (OR^ andExpr)*;
+andExpr: notFunc (AND^ notFunc)*;
+notFunc: (NOT^|) boolFunc;
+boolFunc: aritmeticExpr ((GT^ | LT^ | EQ^) aritmeticExpr)*
+    | FULL^ LPAREN! ID RPAREN!
+    | EMPTY^ LPAREN! ID RPAREN!
+    | LPAREN! boolExpr RPAREN!
+    ;
 
+aritmeticExpr: mulExpr ((MINUS^ | ADD^) mulExpr)*;
+mulExpr: numFunc (MUL^ numFunc)*;
+numFunc: NUM
+    | LENGTH^ LPAREN! ID RPAREN!
+    | DIAMETER^ LPAREN! ID RPAREN!
+    ;

@@ -18,10 +18,10 @@
 using namespace std;
 
 // struct to store information about tokens
-typedef struct {
+struct Attrib {
   string kind;
   string text;
-} Attrib;
+};
 
 // function to fill token information (predeclaration)
 void zzcr_attr(Attrib *attr, int type, char *text);
@@ -60,15 +60,9 @@ zzerraction()
 		NLA = 1;
 	>>
 
-[\ \n]
-	<<
-		NLA = SPACE;
-    zzskip();  
-	>>
-
 TUBE
 	<<
-		NLA = TUNE;
+		NLA = TUBE;
 	>>
 
 CONNECTOR
@@ -88,7 +82,7 @@ MERGE
 
 LENGTH
 	<<
-		NLA = LENGHT;
+		NLA = LENGTH;
 	>>
 
 DIAMETER
@@ -99,6 +93,11 @@ DIAMETER
 WHILE
 	<<
 		NLA = WHILE;
+	>>
+
+ENDWHILE
+	<<
+		NLA = ENDWHILE;
 	>>
 
 NOT
@@ -116,12 +115,12 @@ OR
 		NLA = OR;
 	>>
 
-(
+\(
 	<<
 		NLA = LPAREN;
 	>>
 
-)
+\)
 	<<
 		NLA = RPAREN;
 	>>
@@ -129,6 +128,21 @@ OR
 ,
 	<<
 		NLA = COMMA;
+	>>
+
+\-
+	<<
+		NLA = MINUS;
+	>>
+
+\+
+	<<
+		NLA = ADD;
+	>>
+
+\*
+	<<
+		NLA = MUL;
 	>>
 
 PUSH
@@ -181,9 +195,15 @@ EMPTY
 		NLA = NUM;
 	>>
 
-[a-zA-Z]
+[a-zA-Z][a-zA-Z0-9]*
 	<<
 		NLA = ID;
+	>>
+
+[\ \n]
+	<<
+		NLA = SPACE;
+    zzskip();  
 	>>
 
 %%
