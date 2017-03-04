@@ -99,6 +99,7 @@ int main() {
 >>
 
 #lexclass START
+#token ARRAY "TUBEVECTOR\ OF"
 #token TUBE "TUBE"
 #token CONNECTOR "CONNECTOR"
 #token SPLIT "SPLIT"
@@ -118,7 +119,6 @@ int main() {
 #token MUL "\*"
 #token PUSH "PUSH"
 #token POP "POP"
-#token ARRAY "TUBEVECTOR OF"
 #token FULL "FULL"
 #token EMPTY "EMPTY"
 #token ASSIG "="
@@ -127,21 +127,29 @@ int main() {
 #token EQ "=="
 #token NUM "[0-9]+"
 #token ID "[a-zA-Z][a-zA-Z0-9]*"
-#token SPACE "[\ \n]" << zzskip();>>
+#token SPACE "[\ \n\t\r]" << zzskip();>>
 
-plumber: (op)* <<#0=createASTlist(_sibling);>>;
+plumber: listOp "@"!;
 
-op : ID ASSIG^ funcTube
-    | LPAREN! ID COMMA! ID RPAREN! ASSIG^ funcTubes
-    | WHILE^ LPAREN! boolExpr RPAREN! (op)+ ENDWHILE!
+listOp: (op)* <<#0=createASTlist(_sibling);>>;
+
+op : ID ASSIG^ (funcTube | funcConnector | funcArray)
+    | LPAREN! ID COMMA! ID RPAREN! ASSIG^ funcSplit
+    | WHILE^ LPAREN! boolExpr RPAREN! listOp ENDWHILE!
+    | DIAMETER^ LPAREN! ID RPAREN!
+    | LENGTH^ LPAREN! ID RPAREN!
+    | PUSH^ ID funcTube
+    | POP^ ID ID
     ;
 
-funcTubes: SPLIT^ funcTube;
+funcSplit: SPLIT^ funcTube;
 
-funcConnector: ID | CONNECTOR^ aritmeticExpr;
+funcArray: ARRAY^ aritmeticExpr;
+
+funcConnector: CONNECTOR^ aritmeticExpr;
 
 funcTube : ID
-    | MERGE^ funcTube funcConnector funcTube
+    | MERGE^ funcTube (funcConnector | ID) funcTube
     | TUBE^ aritmeticExpr aritmeticExpr
     ;
 

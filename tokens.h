@@ -9,26 +9,26 @@
  * ANTLR Version 1.33MR33
  */
 #define zzEOF_TOKEN 1
-#define TUBE 2
-#define CONNECTOR 3
-#define SPLIT 4
-#define MERGE 5
-#define LENGTH 6
-#define DIAMETER 7
-#define WHILE 8
-#define ENDWHILE 9
-#define NOT 10
-#define AND 11
-#define OR 12
-#define LPAREN 13
-#define RPAREN 14
-#define COMMA 15
-#define MINUS 16
-#define ADD 17
-#define MUL 18
-#define PUSH 19
-#define POP 20
-#define ARRAY 21
+#define ARRAY 2
+#define TUBE 3
+#define CONNECTOR 4
+#define SPLIT 5
+#define MERGE 6
+#define LENGTH 7
+#define DIAMETER 8
+#define WHILE 9
+#define ENDWHILE 10
+#define NOT 11
+#define AND 12
+#define OR 13
+#define LPAREN 14
+#define RPAREN 15
+#define COMMA 16
+#define MINUS 17
+#define ADD 18
+#define MUL 19
+#define PUSH 20
+#define POP 21
 #define FULL 22
 #define EMPTY 23
 #define ASSIG 24
@@ -46,15 +46,27 @@ extern void plumber();
 #endif
 
 #ifdef __USE_PROTOS
+void listOp(AST**_root);
+#else
+extern void listOp();
+#endif
+
+#ifdef __USE_PROTOS
 void op(AST**_root);
 #else
 extern void op();
 #endif
 
 #ifdef __USE_PROTOS
-void funcTubes(AST**_root);
+void funcSplit(AST**_root);
 #else
-extern void funcTubes();
+extern void funcSplit();
+#endif
+
+#ifdef __USE_PROTOS
+void funcArray(AST**_root);
+#else
+extern void funcArray();
 #endif
 
 #ifdef __USE_PROTOS
@@ -115,11 +127,12 @@ extern void numFunc();
 extern SetWordType zzerr1[];
 extern SetWordType zzerr2[];
 extern SetWordType zzerr3[];
-extern SetWordType setwd1[];
 extern SetWordType zzerr4[];
+extern SetWordType setwd1[];
 extern SetWordType zzerr5[];
 extern SetWordType zzerr6[];
 extern SetWordType zzerr7[];
 extern SetWordType setwd2[];
 extern SetWordType zzerr8[];
+extern SetWordType zzerr9[];
 extern SetWordType setwd3[];

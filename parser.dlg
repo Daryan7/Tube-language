@@ -60,6 +60,11 @@ zzerraction()
 		NLA = 1;
 	>>
 
+TUBEVECTOR\ OF
+	<<
+		NLA = ARRAY;
+	>>
+
 TUBE
 	<<
 		NLA = TUBE;
@@ -155,11 +160,6 @@ POP
 		NLA = POP;
 	>>
 
-TUBEVECTOR OF
-	<<
-		NLA = ARRAY;
-	>>
-
 FULL
 	<<
 		NLA = FULL;
@@ -200,7 +200,7 @@ EMPTY
 		NLA = ID;
 	>>
 
-[\ \n]
+[\ \n\t\r]
 	<<
 		NLA = SPACE;
     zzskip();  
