@@ -59,8 +59,14 @@ ANTLR_INFO
 #include <cmath>
 // function to fill token information
 void zzcr_attr(Attrib *attr, int type, char *text) {
-  attr->kind = text;
-  attr->text = "";
+  if (type == ID) {
+    attr->text = text;
+    attr->kind = "ID";
+  }
+  else {
+    attr->kind = text;
+    attr->text = "";
+  }
 }
 
 // function to create a new AST node
@@ -75,7 +81,7 @@ AST* createASTnode(Attrib* attr, int type, char* text) {
 
 /// create a new "list" AST node with one element
 AST* createASTlist(AST *child) {
-  AST *as=new AST;
+  AST* as=new AST;
   as->kind="list";
   as->right=NULL;
   as->down=child;
@@ -91,8 +97,7 @@ AST* child(AST *a,int n) {
 } 
 
 /// print AST, recursively, with indentation
-void ASTPrintIndent(AST *a,string s)
-{
+void ASTPrintIndent(AST *a,string s) {
   if (a==NULL) return;
   
   cout<<a->kind;
@@ -114,10 +119,9 @@ void ASTPrintIndent(AST *a,string s)
 }
 
 /// print AST 
-void ASTPrint(AST *a)
-{
+void ASTPrint(AST *a) {
   while (a!=NULL) {
-    cout<<" ";
+    cout << " ";
     ASTPrintIndent(a,"");
     a=a->right;
   }
