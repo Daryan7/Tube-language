@@ -16,7 +16,10 @@
 
 #include <string>
 #include <iostream>
+#include <vector>
 using namespace std;
+
+typedef unsigned int uint;
 
 // struct to store information about tokens
 struct Attrib {
@@ -34,6 +37,94 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 // macro to create a new AST node (and function predeclaration)
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
+
+class Data {
+  public:
+  virtual void print() = 0;
+};
+
+class SimpleData : public Data {
+  protected:
+  uint diameter;
+  public:
+  SimpleData(uint diameter) : diameter(diameter) {
+    
+  }
+  
+  uint getDiameter() {
+    return diameter;
+  }
+};
+
+class Tube : public SimpleData {
+  uint length;
+  public:
+  Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {
+  }
+  
+  uint getLength() {
+    return length;
+  }
+  
+  void print() {
+    cout << "Tube of length: " << length << " and diameter: " << diameter << endl;
+  }
+  
+};
+
+class Connector : public SimpleData {
+  public:
+  Connector(uint diameter) : SimpleData(diameter) {
+  }
+  
+  void print() {
+    cout << "Connector of diameter: " << diameter << endl;
+  }
+};
+
+class Vector : public Data {
+  vector<Tube> vec;
+  
+  public:
+  Vector(uint size) {
+    vec.reserve(size);
+    cout << size << " " << vec.capacity() << endl;
+  }
+  
+  bool full() {
+    return vec.size() == vec.capacity();
+  }
+  bool empty() {
+    return vec.size() > 0;
+  }
+  
+  uint length() {
+    return vec.size();
+  }
+  void push(const Tube& tube) {
+    if (vec.size() < vec.capacity()) {
+      vec.push_back(tube);
+    }
+    else {
+      cerr << "Trying to push a full tube vector" << endl;
+      exit(-1);
+    }
+  }
+  Tube pop() {
+    Tube last =  vec[vec.size()-1];
+    vec.pop_back();
+    return last;
+  }
+  
+  void print() {
+    cout << "Vector of tubes: " << endl;
+    for (Tube& tube : vec) {
+      cout << "\t";
+      tube.print();
+    }
+  }
+};
+
 #define GENAST
 
 #include "ast.h"
@@ -57,15 +148,27 @@ ANTLR_INFO
 
 #include <cstdlib>
 #include <cmath>
+#include <map>
+#include <typeinfo>
+
+map<string, Data*> vars;
+typedef map<string, Data*>::iterator Iterator;
+
 // function to fill token information
 void zzcr_attr(Attrib *attr, int type, char *text) {
-  if (type == ID) {
+  switch (type) {
+    case ID:
     attr->text = text;
     attr->kind = "ID";
-  }
-  else {
+    break;
+    case NUM:
+    attr->text = text;
+    attr->kind = "NUM";
+    break;
+    default:
     attr->kind = text;
     attr->text = "";
+    break;
   }
 }
 
@@ -94,7 +197,7 @@ AST* child(AST *a,int n) {
   AST *c=a->down;
   for (int i=0; c!=NULL && i<n; i++) c=c->right;
   return c;
-} 
+}
 
 /// print AST, recursively, with indentation
 void ASTPrintIndent(AST *a,string s) {
@@ -127,10 +230,79 @@ void ASTPrint(AST *a) {
   }
 }
 
+uint getLength(AST* child) {
+  Iterator it = vars.find(child->text);
+  if (it != vars.end()) {
+    Tube* tube = dynamic_cast<Tube*>(it->second);
+    if (tube) return tube->getLength();
+    else {
+      cout << "Wrong type, only tubes have length but " << child->text << " is a " << typeid(*it->second).name() << " instance" << endl;
+      exit(-1);
+    }
+  }
+  else {
+    cout << "Var " << child->text << " does not exist" << endl;
+    exit(-1);
+  }
+}
+
+int evaluateExpresion(AST* root) {
+  if (root->kind == "NUM") {
+    return stoi(root->text);
+  }
+  else if (root->kind == "+") {
+    return evaluateExpresion(root->down)+evaluateExpresion(root->down->right);
+  }
+  else if (root->kind == "-") {
+    return evaluateExpresion(root->down)-evaluateExpresion(root->down->right);
+  }
+  else if (root->kind == "*") {
+    return evaluateExpresion(root->down)*evaluateExpresion(root->down->right);
+  }
+  else if (root->kind == "LENGTH") {
+    return getLength(root->down);
+  }
+  else if (root->kind == "DIAMETER") {
+    
+  }
+}
+
+void execute(AST* root) {
+  if (root->kind == "=") {
+    AST* childLeft = root->down;
+    AST* childRight = childLeft->right;
+    string& varName = childLeft->text;
+    string& assignType = childRight->kind;
+    if (assignType == "TUBE") {
+      AST* lengthAST = childRight->down;
+      AST* diameterAST = lengthAST->right;
+      vars[varName] = new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
+    }
+    else if (assignType == "CONNECTOR") {
+      vars[varName] = new Connector(evaluateExpresion(childRight->down));
+    }
+  }
+}
+
+void executeList(AST* root) {
+  AST* child = root->down;
+  while (child != NULL) {
+    execute(child);
+    child = child->right;
+  }
+}
+
 int main() {
+  cout << sizeof(Data) << endl;
   AST *root = NULL;
   ANTLR(plumber(&root), stdin);
-  ASTPrint(root);
+  //ASTPrint(root);
+  executeList(root);
+  
+  for (pair<const string, Data*>& var : vars) {
+    cout << var.first << " is a ";
+    var.second->print();
+  }
 }
 
 void

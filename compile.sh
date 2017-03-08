@@ -1,4 +1,4 @@
-antlr -gt $1.g
+antlr -gt ${1}.g
 if (($? == 0)); then
 	dlg -ci parser.dlg scan.c
 	if (($? == 0)); then

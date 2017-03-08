@@ -16,7 +16,10 @@
 
 #include <string>
 #include <iostream>
+#include <vector>
 using namespace std;
+
+typedef unsigned int uint;
 
 // struct to store information about tokens
 struct Attrib {
@@ -34,6 +37,94 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 // macro to create a new AST node (and function predeclaration)
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
+
+class Data {
+  public:
+  virtual void print() = 0;
+};
+
+class SimpleData : public Data {
+  protected:
+  uint diameter;
+  public:
+  SimpleData(uint diameter) : diameter(diameter) {
+    
+  }
+  
+  uint getDiameter() {
+    return diameter;
+  }
+};
+
+class Tube : public SimpleData {
+  uint length;
+  public:
+  Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {
+  }
+  
+  uint getLength() {
+    return length;
+  }
+  
+  void print() {
+    cout << "Tube of length: " << length << " and diameter: " << diameter << endl;
+  }
+  
+};
+
+class Connector : public SimpleData {
+  public:
+  Connector(uint diameter) : SimpleData(diameter) {
+  }
+  
+  void print() {
+    cout << "Connector of diameter: " << diameter << endl;
+  }
+};
+
+class Vector : public Data {
+  vector<Tube> vec;
+  
+  public:
+  Vector(uint size) {
+    vec.reserve(size);
+    cout << size << " " << vec.capacity() << endl;
+  }
+  
+  bool full() {
+    return vec.size() == vec.capacity();
+  }
+  bool empty() {
+    return vec.size() > 0;
+  }
+  
+  uint length() {
+    return vec.size();
+  }
+  void push(const Tube& tube) {
+    if (vec.size() < vec.capacity()) {
+      vec.push_back(tube);
+    }
+    else {
+      cerr << "Trying to push a full tube vector" << endl;
+      exit(-1);
+    }
+  }
+  Tube pop() {
+    Tube last =  vec[vec.size()-1];
+    vec.pop_back();
+    return last;
+  }
+  
+  void print() {
+    cout << "Vector of tubes: " << endl;
+    for (Tube& tube : vec) {
+      cout << "\t";
+      tube.print();
+    }
+  }
+};
+
 #define zzSET_SIZE 4
 #include "antlr.h"
 #include "ast.h"
