@@ -37,9 +37,19 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
 
+class Prueba {
+  public:
+  ~Prueba() {
+    cout << "Destruyendo prueba1" << endl;
+  }
+};
+
 class Data {
   public:
   virtual void print() = 0;
+  virtual ~Data() {
+    
+    }
 };
 
 class SimpleData : public Data {
@@ -47,10 +57,12 @@ class SimpleData : public Data {
   uint diameter;
   public:
   SimpleData(uint diameter) : diameter(diameter) {
-    
   }
+  virtual ~SimpleData() {
+    
+    }
   
-  uint getDiameter() {
+    uint getDiameter() {
     return diameter;
   }
 };
@@ -61,11 +73,11 @@ class Tube : public SimpleData {
   Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {
   }
   
-  uint getLength() {
+    uint getLength() {
     return length;
   }
   
-  void print() {
+    void print() {
     cout << "Tube of length: " << length << " and diameter: " << diameter << endl;
   }
   
@@ -76,28 +88,29 @@ class Connector : public SimpleData {
   Connector(uint diameter) : SimpleData(diameter) {
   }
   
-  void print() {
+    void print() {
     cout << "Connector of diameter: " << diameter << endl;
   }
 };
 
 class Vector : public Data {
   vector<Tube> vec;
+  Prueba p;
   
-  public:
+public:
   Vector(uint size) {
     vec.reserve(size);
     cout << size << " " << vec.capacity() << endl;
   }
   
-  bool full() {
+    bool full() {
     return vec.size() == vec.capacity();
   }
   bool empty() {
     return vec.size() > 0;
   }
   
-  uint length() {
+    uint length() {
     return vec.size();
   }
   void push(const Tube& tube) {
@@ -115,7 +128,7 @@ class Vector : public Data {
     return last;
   }
   
-  void print() {
+    void print() {
     cout << "Vector of tubes: " << endl;
     for (Tube& tube : vec) {
       cout << "\t";
@@ -123,7 +136,6 @@ class Vector : public Data {
     }
   }
 };
-
 #include "antlr.h"
 #include "ast.h"
 #include "tokens.h"

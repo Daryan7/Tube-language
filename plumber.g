@@ -27,6 +27,9 @@ AST* createASTnode(Attrib* attr, int ttype, char *textt);
 class Data {
 public:
     virtual void print() = 0;
+    virtual ~Data() {
+
+    }
 };
 
 class SimpleData : public Data {
@@ -34,6 +37,8 @@ protected:
     uint diameter;
 public:
     SimpleData(uint diameter) : diameter(diameter) {
+    }
+    virtual ~SimpleData() {
 
     }
 
@@ -74,7 +79,6 @@ class Vector : public Data {
 public:
     Vector(uint size) {
         vec.reserve(size);
-        cout << size << " " << vec.capacity() << endl;
     }
 
     bool full() {
@@ -110,7 +114,6 @@ public:
         }
     }
 };
-
 >>
 
 <<
@@ -132,6 +135,10 @@ void zzcr_attr(Attrib *attr, int type, char *text) {
     case NUM:
         attr->text = text;
         attr->kind = "NUM";
+        break;
+    case ARRAY:
+        attr->kind = "ARRAY";
+        attr->text = "";
         break;
     default:
         attr->kind = text;
@@ -214,6 +221,19 @@ uint getLength(AST* child) {
     }
 }
 
+uint getDiameter(AST* child) {
+    Iterator it = vars.find(child->text);
+    if (it != vars.end()) {
+        SimpleData* data = dynamic_cast<SimpleData*>(it->second);
+        if (data) return data->getDiameter();
+
+        cout << "Wrong type, only tubes and connectors have diameter but " << child->text << " is a " << typeid(*it->second).name() << " instance" << endl;
+        exit(-1);
+    }
+    cout << "Var " << child->text << " does not exist" << endl;
+    exit(-1);
+}
+
 int evaluateExpresion(AST* root) {
     if (root->kind == "NUM") {
         return stoi(root->text);
@@ -231,7 +251,35 @@ int evaluateExpresion(AST* root) {
         return getLength(root->down);
     }
     else if (root->kind == "DIAMETER") {
+        return getDiameter(root->down);
+    }
+}
 
+Connector* getConnector(AST* root) {
+
+}
+
+Tube* getTube(AST* root) {
+    string& type = root->kind;
+    if (type == "TUBE") {
+        AST* lengthAST = root->down;
+        AST* diameterAST = lengthAST->right;
+        return new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
+    }
+    else if (type == "ID") {
+        Iterator it = vars.find(root->text);
+        if (it == vars.end()) {
+            cout << "Var " << root->text << " does not exist" << endl;
+            exit(-1);
+        }
+        return it->second;
+    }
+    else {
+        AST* tube1AST = root->down;
+        AST* connectorAST = tubeLeftAST->right;
+        Tube* tube1 = getTube(tube1AST);
+        Tube* tube2 = getTube(connectorAST->right);
+        Connector connector = getConnector(connectorAST);
     }
 }
 
@@ -244,10 +292,31 @@ void execute(AST* root) {
         if (assignType == "TUBE") {
             AST* lengthAST = childRight->down;
             AST* diameterAST = lengthAST->right;
-            vars[varName] = new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
+            Iterator it = vars.lower_bound(varName);
+            if (it != vars.end() and varName == it->first) {
+                delete it->second;
+                it->second = new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
+            }
+            else vars.insert(it, make_pair(varName, new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST))));
         }
         else if (assignType == "CONNECTOR") {
-            vars[varName] = new Connector(evaluateExpresion(childRight->down));
+            Iterator it = vars.lower_bound(varName);
+            if (it != vars.end() and varName == it->first) {
+                delete it->second;
+                it->second = new Connector(evaluateExpresion(childRight->down));
+            }
+            else vars.insert(it, make_pair(varName, new Connector(evaluateExpresion(childRight->down))));
+        }
+        else if (assignType == "ARRAY") {
+            Iterator it = vars.lower_bound(varName);
+            if (it != vars.end() and varName == it->first) {
+                delete it->second;
+                it->second = new Vector(evaluateExpresion(childRight->down));
+            }
+            else vars.insert(it, make_pair(varName, new Vector(evaluateExpresion(childRight->down))));
+        }
+        else if (assignType == "MERGE") {
+
         }
     }
 }
