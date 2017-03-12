@@ -27,21 +27,16 @@ AST* createASTnode(Attrib* attr, int ttype, char *textt);
 class Data {
 public:
     virtual void print() = 0;
-    virtual ~Data() {
-
-    }
+    virtual Data* clone();
+    virtual ~Data() {}
 };
 
 class SimpleData : public Data {
 protected:
     uint diameter;
 public:
-    SimpleData(uint diameter) : diameter(diameter) {
-    }
-    virtual ~SimpleData() {
-
-    }
-
+    SimpleData(uint diameter) : diameter(diameter) {}
+    virtual ~SimpleData() {}
     uint getDiameter() {
         return diameter;
     }
@@ -50,11 +45,13 @@ public:
 class Tube : public SimpleData {
     uint length;
 public:
-    Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {
-    }
+    Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {}
 
     uint getLength() {
         return length;
+    }
+    Data* clone() {
+        return new Tube(length, diameter);
     }
 
     void print() {
@@ -65,7 +62,10 @@ public:
 
 class Connector : public SimpleData {
 public:
-    Connector(uint diameter) : SimpleData(diameter) {
+    Connector(uint diameter) : SimpleData(diameter) {}
+
+    Data* clone() {
+        return new Connector(diameter);
     }
 
     void print() {
@@ -75,35 +75,46 @@ public:
 
 class Vector : public Data {
     vector<Tube> vec;
+    uint size;
 
+    Vector() {}
 public:
-    Vector(uint size) {
-        vec.reserve(size);
+    Vector(uint limit) {
+        vec = vector<Tube>(limit);
+        size = 0;
     }
-
     bool full() {
-        return vec.size() == vec.capacity();
+        return size == vec.size();
     }
     bool empty() {
-        return vec.size() > 0;
+        return size == 0;;
     }
-
     uint length() {
-        return vec.size();
+        return size;
     }
     void push(const Tube& tube) {
-        if (vec.size() < vec.capacity()) {
-            vec.push_back(tube);
+        if (size < vec.size()) {
+            vec[size] = tube;
+            ++size;
         }
         else {
             cerr << "Trying to push a full tube vector" << endl;
             exit(-1);
         }
     }
-    Tube pop() {
-        Tube last =  vec[vec.size()-1];
-        vec.pop_back();
-        return last;
+    Tube* pop() {
+        if (size > 0) {
+            --size;
+            return vec[size].clone();
+        }
+        cout << "Trying to pop an empty tube vector" << endl;
+        exit(-1);
+    }
+
+    Data* clone() {
+        Vector* auxVector = new Vector();
+        auxVector->vec = vec;
+        return auxVector;
     }
 
     void print() {
@@ -210,15 +221,11 @@ uint getLength(AST* child) {
     if (it != vars.end()) {
         Tube* tube = dynamic_cast<Tube*>(it->second);
         if (tube) return tube->getLength();
-        else {
-            cout << "Wrong type, only tubes have length but " << child->text << " is a " << typeid(*it->second).name() << " instance" << endl;
-            exit(-1);
-        }
-    }
-    else {
-        cout << "Var " << child->text << " does not exist" << endl;
+        cout << "Wrong type, only tubes have length but " << child->text << " is a " << typeid(*it->second).name() << " instance" << endl;
         exit(-1);
     }
+    cout << "Var " << child->text << " does not exist" << endl;
+    exit(-1);
 }
 
 uint getDiameter(AST* child) {
@@ -250,37 +257,101 @@ int evaluateExpresion(AST* root) {
     else if (root->kind == "LENGTH") {
         return getLength(root->down);
     }
-    else if (root->kind == "DIAMETER") {
+    else { //DIAMETER
         return getDiameter(root->down);
     }
 }
 
-Connector* getConnector(AST* root) {
+Connector* getConnector(AST* root, Iterator* idIterator) {
+    if (idIterator != NULL) *idIterator = vars.end();
+    string& type = root->kind;
 
+    if (type == "ID") {
+        Iterator it = vars.find(root->text);
+        if (it == vars.end()) {
+            cout << "Var " << root->text << " does not exist" << endl;
+            exit(-1);
+        }
+        Connector* connector = dynamic_cast<Connector*>(it->second);
+        if (not connector) {
+            cout << "Variable " << root->text << " is a " << typeid(it->second).name() << " but a connector was requested" << endl;
+            exit(-1);
+        }
+        if (idIterator != NULL) *idIterator = it;
+        return connector;
+    }
+    else {//Connector
+        return new Connector(evaluateExpresion(root->down));
+    }
 }
 
-Tube* getTube(AST* root) {
+Tube* getTube(AST* root, Iterator* idIterator) {
+    if (idIterator != NULL) *idIterator = vars.end();
     string& type = root->kind;
+
     if (type == "TUBE") {
         AST* lengthAST = root->down;
         AST* diameterAST = lengthAST->right;
         return new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
     }
+
     else if (type == "ID") {
         Iterator it = vars.find(root->text);
         if (it == vars.end()) {
             cout << "Var " << root->text << " does not exist" << endl;
             exit(-1);
         }
-        return it->second;
+        Tube* tube = dynamic_cast<Tube*>(it->second);
+        if (not tube) {
+            cout << "Variable " << root->text << " is a " << typeid(it->second).name() << " but a tube was requested" << endl;
+            exit(-1);
+        }
+        if (idIterator != NULL) *idIterator = it;
+        return tube;
     }
-    else {
-        AST* tube1AST = root->down;
-        AST* connectorAST = tubeLeftAST->right;
-        Tube* tube1 = getTube(tube1AST);
-        Tube* tube2 = getTube(connectorAST->right);
-        Connector connector = getConnector(connectorAST);
+
+    else { //MERGE
+        return mergeTubes(root);
     }
+}
+
+Tube* mergeTubes(AST* root) {
+    AST* tube1AST = root->down;
+    AST* connectorAST = tube1AST->right;
+    AST* tube2AST = connectorAST->right;
+
+    Iterator itTube1, itTube2, itConnector;
+    Tube* tube1 = getTube(tube1AST, &itTube1);
+    Tube* tube2 = getTube(tube2AST, &itTube2);
+    Connector* connector = getConnector(connectorAST, &itConnector);
+
+    uint diameterT1, diameterT2, diameterC;
+    diameterT1 = tube1->getDiameter();
+    diameterT2 = tube2->getDiameter();
+    diameterC = connector->getDiameter();
+    if (not (diameterT1 == diameterT2 and diameterT1 == diameterC)) {
+        cout << "Merging tubes require equal diameters for all arguments, but this was provided: " << endl;
+        cout << tube1AST->text << ", diameter " << diameterT1 << endl;
+        cout << connectorAST->text << ", diameter " << diameterC << endl;
+        cout << tube2AST->text << ", diameter " << diameterT2 << endl;
+        exit(-1);
+    }
+
+    Tube* ret = new Tube(tube1->getLength()+tube2->getLength(), diameterC);
+    delete tube1; delete tube2; delete connector;
+    if (itTube1 != vars.end()) vars.erase(itTube1);
+    if (itTube2 != vars.end()) vars.erase(itTube2);
+    if (itConnector != vars.end()) vars.erase(itConnector);
+    return ret;
+}
+
+void insertData(Data* data, string& name) {
+    Iterator it = vars.lower_bound(name);
+    if (it != vars.end() and name == it->first) {
+        delete it->second;
+        it->second = data;
+    }
+    else vars.insert(it, make_pair(name, data));
 }
 
 void execute(AST* root) {
@@ -289,34 +360,32 @@ void execute(AST* root) {
         AST* childRight = childLeft->right;
         string& varName = childLeft->text;
         string& assignType = childRight->kind;
+
         if (assignType == "TUBE") {
             AST* lengthAST = childRight->down;
             AST* diameterAST = lengthAST->right;
-            Iterator it = vars.lower_bound(varName);
-            if (it != vars.end() and varName == it->first) {
-                delete it->second;
-                it->second = new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST));
-            }
-            else vars.insert(it, make_pair(varName, new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST))));
+            insertData(new Tube(evaluateExpresion(lengthAST), evaluateExpresion(diameterAST)), varName);
         }
-        else if (assignType == "CONNECTOR") {
-            Iterator it = vars.lower_bound(varName);
-            if (it != vars.end() and varName == it->first) {
-                delete it->second;
-                it->second = new Connector(evaluateExpresion(childRight->down));
-            }
-            else vars.insert(it, make_pair(varName, new Connector(evaluateExpresion(childRight->down))));
-        }
-        else if (assignType == "ARRAY") {
-            Iterator it = vars.lower_bound(varName);
-            if (it != vars.end() and varName == it->first) {
-                delete it->second;
-                it->second = new Vector(evaluateExpresion(childRight->down));
-            }
-            else vars.insert(it, make_pair(varName, new Vector(evaluateExpresion(childRight->down))));
-        }
-        else if (assignType == "MERGE") {
 
+        else if (assignType == "CONNECTOR") {
+            insertData(new Connector(evaluateExpresion(childRight->down)), varName);
+        }
+
+        else if (assignType == "ARRAY") {
+            insertData(new Vector(evaluateExpresion(childRight->down)), varName);
+        }
+
+        else if (assignType == "MERGE") {
+            insertData(mergeTubes(childRight), varName);
+        }
+
+        else { //ID
+            Iterator it = vars.find(childRight->text);
+            if (it == vars.end()) {
+                cout << "Variable " << childRight->text << " does not exist" << endl;
+                exit(-1);
+            }
+            insertData(it->second->clone(), varName);
         }
     }
 }
