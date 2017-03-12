@@ -16,7 +16,7 @@
 
 #include <string>
 #include <iostream>
-#include <vector>
+#include <cstring>
 using namespace std;
 
 typedef unsigned int uint;
@@ -38,32 +38,20 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
 
-class Prueba {
-  public:
-  ~Prueba() {
-    cout << "Destruyendo prueba1" << endl;
-  }
-};
-
 class Data {
   public:
   virtual void print() = 0;
-  virtual ~Data() {
-    
-    }
+  virtual Data* clone() = 0;
+  virtual ~Data() {}
 };
 
 class SimpleData : public Data {
   protected:
   uint diameter;
   public:
-  SimpleData(uint diameter) : diameter(diameter) {
-  }
-  virtual ~SimpleData() {
-    
-    }
-  
-    uint getDiameter() {
+  SimpleData(uint diameter) : diameter(diameter) {}
+  virtual ~SimpleData() {}
+  uint getDiameter() {
     return diameter;
   }
 };
@@ -71,14 +59,16 @@ class SimpleData : public Data {
 class Tube : public SimpleData {
   uint length;
   public:
-  Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {
-  }
+  Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {}
   
-    uint getLength() {
+  uint getLength() {
     return length;
   }
+  Data* clone() {
+    return new Tube(length, diameter);
+  }
   
-    void print() {
+  void print() {
     cout << "Tube of length: " << length << " and diameter: " << diameter << endl;
   }
   
@@ -86,54 +76,70 @@ class Tube : public SimpleData {
 
 class Connector : public SimpleData {
   public:
-  Connector(uint diameter) : SimpleData(diameter) {
+  Connector(uint diameter) : SimpleData(diameter) {}
+  
+  Data* clone() {
+    return new Connector(diameter);
   }
   
-    void print() {
+  void print() {
     cout << "Connector of diameter: " << diameter << endl;
   }
 };
 
 class Vector : public Data {
-  vector<Tube> vec;
-  Prueba p;
+  Tube* vec;
+  uint size;
+  uint limit;
   
-public:
-  Vector(uint size) {
-    vec.reserve(size);
-    cout << size << " " << vec.capacity() << endl;
+  public:
+  Vector(uint limit) : limit(limit), size(0) {
+    vec = (Tube*)malloc(sizeof(Tube)*limit);
+  }
+  ~Vector() {
+    free(vec);
   }
   
-    bool full() {
-    return vec.size() == vec.capacity();
+  bool full() {
+    return size == limit;
   }
   bool empty() {
-    return vec.size() > 0;
+    return size == 0;;
   }
-  
-    uint length() {
-    return vec.size();
+  uint length() {
+    return size;
   }
   void push(const Tube& tube) {
-    if (vec.size() < vec.capacity()) {
-      vec.push_back(tube);
+    if (size < limit) {
+      vec[size] = tube;
+      ++size;
     }
     else {
       cerr << "Trying to push a full tube vector" << endl;
       exit(-1);
     }
   }
-  Tube pop() {
-    Tube last =  vec[vec.size()-1];
-    vec.pop_back();
-    return last;
+  Tube* pop() {
+    if (size > 0) {
+      --size;
+      return (Tube*)vec[size].clone();
+    }
+    cout << "Trying to pop an empty tube vector" << endl;
+    exit(-1);
   }
   
-    void print() {
+  Data* clone() {
+    Vector* auxVector = new Vector(limit);
+    memcpy(auxVector->vec, vec, sizeof(Tube)*size);
+    auxVector->size = size;
+    return auxVector;
+  }
+  
+  void print() {
     cout << "Vector of tubes: " << endl;
-    for (Tube& tube : vec) {
+    for (uint i = 0; i < size; ++i) {
       cout << "\t";
-      tube.print();
+      vec[i].print();
     }
   }
 };

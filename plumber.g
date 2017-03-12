@@ -2,7 +2,7 @@
 <<
 #include <string>
 #include <iostream>
-#include <vector>
+#include <cstring>
 using namespace std;
 
 typedef unsigned int uint;
@@ -27,7 +27,7 @@ AST* createASTnode(Attrib* attr, int ttype, char *textt);
 class Data {
 public:
     virtual void print() = 0;
-    virtual Data* clone();
+    virtual Data* clone() = 0;
     virtual ~Data() {}
 };
 
@@ -74,17 +74,20 @@ public:
 };
 
 class Vector : public Data {
-    vector<Tube> vec;
+    Tube* vec;
     uint size;
+    uint limit;
 
-    Vector() {}
 public:
-    Vector(uint limit) {
-        vec = vector<Tube>(limit);
-        size = 0;
+    Vector(uint limit) : limit(limit), size(0) {
+        vec = (Tube*)malloc(sizeof(Tube)*limit);
     }
+    ~Vector() {
+        free(vec);
+    }
+
     bool full() {
-        return size == vec.size();
+        return size == limit;
     }
     bool empty() {
         return size == 0;;
@@ -93,7 +96,7 @@ public:
         return size;
     }
     void push(const Tube& tube) {
-        if (size < vec.size()) {
+        if (size < limit) {
             vec[size] = tube;
             ++size;
         }
@@ -105,23 +108,24 @@ public:
     Tube* pop() {
         if (size > 0) {
             --size;
-            return vec[size].clone();
+            return (Tube*)vec[size].clone();
         }
         cout << "Trying to pop an empty tube vector" << endl;
         exit(-1);
     }
 
     Data* clone() {
-        Vector* auxVector = new Vector();
-        auxVector->vec = vec;
+        Vector* auxVector = new Vector(limit);
+        memcpy(auxVector->vec, vec, sizeof(Tube)*size);
+        auxVector->size = size;
         return auxVector;
     }
 
     void print() {
         cout << "Vector of tubes: " << endl;
-        for (Tube& tube : vec) {
+        for (uint i = 0; i < size; ++i) {
             cout << "\t";
-            tube.print();
+            vec[i].print();
         }
     }
 };
@@ -274,7 +278,7 @@ Connector* getConnector(AST* root, Iterator* idIterator) {
         }
         Connector* connector = dynamic_cast<Connector*>(it->second);
         if (not connector) {
-            cout << "Variable " << root->text << " is a " << typeid(it->second).name() << " but a connector was requested" << endl;
+            cout << "Variable " << root->text << " is a " << typeid(*it->second).name() << " but a connector was requested" << endl;
             exit(-1);
         }
         if (idIterator != NULL) *idIterator = it;
@@ -284,6 +288,8 @@ Connector* getConnector(AST* root, Iterator* idIterator) {
         return new Connector(evaluateExpresion(root->down));
     }
 }
+
+Tube* mergeTubes(AST *root);
 
 Tube* getTube(AST* root, Iterator* idIterator) {
     if (idIterator != NULL) *idIterator = vars.end();
@@ -323,6 +329,10 @@ Tube* mergeTubes(AST* root) {
     Iterator itTube1, itTube2, itConnector;
     Tube* tube1 = getTube(tube1AST, &itTube1);
     Tube* tube2 = getTube(tube2AST, &itTube2);
+    if (tube1 == tube2) {
+        cout << "Can't merge a tube with itself" << endl;
+        exit(-1);
+    }
     Connector* connector = getConnector(connectorAST, &itConnector);
 
     uint diameterT1, diameterT2, diameterC;
@@ -387,6 +397,12 @@ void execute(AST* root) {
             }
             insertData(it->second->clone(), varName);
         }
+    }
+    else if (root->kind == "LENGTH") {
+        cout << getLength(root->down) << endl;
+    }
+    else if (root->kind == "DIAMETER") {
+        cout << getDiameter(root->down) << endl;
     }
 }
 
