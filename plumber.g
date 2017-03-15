@@ -36,7 +36,7 @@ protected:
     uint diameter;
 public:
     SimpleData(uint diameter) : diameter(diameter) {}
-    SimpleData() : diameter(0) {}
+    //SimpleData() : diameter(0) {}
     virtual ~SimpleData() {}
     uint getDiameter() {
         return diameter;
@@ -47,7 +47,7 @@ class Tube : public SimpleData {
     uint length;
 public:
     Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {}
-    Tube() : length(0) {}
+    //Tube() : length(0) {}
 
     uint getLength() {
         return length;
@@ -82,10 +82,12 @@ class Vector : public Data {
 
 public:
     Vector(uint limit) : limit(limit), size(0) {
-        vec = new Tube[limit];
+        //vec = new Tube[limit];
+        vec = (Tube*)malloc(limit*sizeof(Tube));
     }
     ~Vector() {
-        delete vec;
+        free(vec);
+        //delete vec;
     }
 
     bool full() {
@@ -99,7 +101,8 @@ public:
     }
     void push(const Tube& tube) {
         if (size < limit) {
-            vec[size] = tube;
+            //vec[size] = tube;
+            memcpy(&vec[size], &tube, sizeof(Tube));
             ++size;
         }
         else {
