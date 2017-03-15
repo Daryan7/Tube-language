@@ -50,6 +50,7 @@ class SimpleData : public Data {
   uint diameter;
   public:
   SimpleData(uint diameter) : diameter(diameter) {}
+  SimpleData() : diameter(0) {}
   virtual ~SimpleData() {}
   uint getDiameter() {
     return diameter;
@@ -60,6 +61,7 @@ class Tube : public SimpleData {
   uint length;
   public:
   Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {}
+  Tube() : length(0) {}
   
   uint getLength() {
     return length;
@@ -94,10 +96,10 @@ class Vector : public Data {
   
   public:
   Vector(uint limit) : limit(limit), size(0) {
-    vec = (Tube*)malloc(sizeof(Tube)*limit);
+    vec = new Tube[limit];
   }
   ~Vector() {
-    free(vec);
+    delete vec;
   }
   
   bool full() {
@@ -252,7 +254,25 @@ void ASTPrint(AST *a) {
   }
 }
 
-uint getLength(AST* child) {
+inline Data* getData(const string& varName) {
+  Iterator it = vars.find(varName);
+  if (it == vars.end()) {
+    cout << "Var " << varName << " does not exist" << endl;
+    exit(-1);
+  }
+  return it->second;
+}
+
+inline void insertData(Data* data, const string& name) {
+  Iterator it = vars.lower_bound(name);
+  if (it != vars.end() and name == it->first) {
+    delete it->second;
+    it->second = data;
+  }
+  else vars.insert(it, make_pair(name, data));
+}
+
+inline uint getLength(AST* child) {
   Iterator it = vars.find(child->text);
   if (it != vars.end()) {
     Tube* tube = dynamic_cast<Tube*>(it->second);
@@ -264,7 +284,7 @@ uint getLength(AST* child) {
   exit(-1);
 }
 
-uint getDiameter(AST* child) {
+inline uint getDiameter(AST* child) {
   Iterator it = vars.find(child->text);
   if (it != vars.end()) {
     SimpleData* data = dynamic_cast<SimpleData*>(it->second);
@@ -278,23 +298,72 @@ uint getDiameter(AST* child) {
 }
 
 int evaluateExpresion(AST* root) {
-  if (root->kind == "NUM") {
+  string& kind = root->kind;
+  if (kind == "NUM") {
     return stoi(root->text);
   }
-  else if (root->kind == "+") {
+  else if (kind == "+") {
     return evaluateExpresion(root->down)+evaluateExpresion(root->down->right);
   }
-  else if (root->kind == "-") {
+  else if (kind == "-") {
     return evaluateExpresion(root->down)-evaluateExpresion(root->down->right);
   }
-  else if (root->kind == "*") {
+  else if (kind == "*") {
     return evaluateExpresion(root->down)*evaluateExpresion(root->down->right);
   }
-  else if (root->kind == "LENGTH") {
+  else if (kind == "LENGTH") {
     return getLength(root->down);
   }
   else { //DIAMETER
     return getDiameter(root->down);
+  }
+}
+
+bool evaluateBoolean(AST* root) {
+  string& kind = root->kind;
+  if (kind == "AND") {
+    return evaluateBoolean(root->down) and evaluateBoolean(root->down->right);
+  }
+  else if (kind == "OR") {
+    return evaluateBoolean(root->down) or evaluateBoolean(root->down->right);
+  }
+  else if (kind == "NOT") {
+    return not evaluateBoolean(root->down);
+  }
+  else if (kind == "FULL") {
+    Iterator it = vars.find(root->down->text);
+    if (it == vars.end()) {
+      cout << "Var " << root->down->text << " does not exist" << endl;
+      exit(-1);
+    }
+    Vector* vec = dynamic_cast<Vector*>(it->second);
+    if (not vec) {
+      cout << root->down->text << " is a " << typeid(*it->second).name() << ", so FULL can't be applied" << endl;
+      exit(-1);
+    }
+    return vec->full();
+  }
+  else if (kind == "EMPTY") {
+    Iterator it = vars.find(root->down->text);
+    if (it == vars.end()) {
+      cout << "Var " << root->down->text << "does not exist" << endl;
+      exit(-1);
+    }
+    Vector* vec = dynamic_cast<Vector*>(it->second);
+    if (not vec) {
+      cout << root->down->text << " is a " << typeid(*it->second).name() << ", so EMPTY can't be applied" << endl;
+      exit(-1);
+    }
+    return vec->empty();
+  }
+  else if (kind == "<") {
+    return evaluateExpresion(root->down) < evaluateExpresion(root->down->right);
+  }
+  else if (kind == ">") {
+    return evaluateExpresion(root->down) > evaluateExpresion(root->down->right);
+  }
+  else {//==
+    return evaluateExpresion(root->down) == evaluateExpresion(root->down->right);
   }
 }
 
@@ -387,14 +456,7 @@ Tube* mergeTubes(AST* root) {
   return ret;
 }
 
-void insertData(Data* data, string& name) {
-  Iterator it = vars.lower_bound(name);
-  if (it != vars.end() and name == it->first) {
-    delete it->second;
-    it->second = data;
-  }
-  else vars.insert(it, make_pair(name, data));
-}
+void executeList(AST* root);
 
 void execute(AST* root) {
   if (root->kind == "=") {
@@ -421,13 +483,72 @@ void execute(AST* root) {
       insertData(mergeTubes(childRight), varName);
     }
     
-    else { //ID
+    else if (childRight->right != NULL) { //SPLIT
+      Iterator itTube;
+      Tube* tube = getTube(childRight->right->down, &itTube);
+      
+      Tube* tube1 = new Tube(tube->getLength()/2, tube->getDiameter());
+      Tube* tube2 = new Tube(tube->getLength() - tube->getLength()/2, tube->getDiameter());
+      
+      delete tube;
+      if (itTube != vars.end()) vars.erase(itTube);
+      
+      insertData(tube1, childLeft->text);
+      insertData(tube2, childRight->text);
+    }
+    
+    else { //COPY
       Iterator it = vars.find(childRight->text);
       if (it == vars.end()) {
         cout << "Variable " << childRight->text << " does not exist" << endl;
         exit(-1);
       }
       insertData(it->second->clone(), varName);
+    }
+  }
+  else if (root->kind == "LENGTH") {
+    cout << getLength(root->down) << endl;
+  }
+  else if (root->kind == "DIAMETER") {
+    cout << getDiameter(root->down) << endl;
+  }
+  else if (root->kind == "POP") {
+    Iterator it = vars.find(root->down->text);
+    if (it == vars.end()) {
+      cout << "Var " << root->down->text << " does not exist";
+      exit(-1);
+    }
+    Vector* vec = dynamic_cast<Vector*>(it->second);
+    if (not vec) {
+      cout << "Pop is only possible with vectors, but " << root->down->text << " is a " << typeid(*it->second).name() << endl;
+      exit(-1);
+    }
+    insertData(vec->pop(), root->down->right->text);
+  }
+  else if (root->kind == "PUSH") {
+    Iterator it = vars.find(root->down->text);
+    if (it == vars.end()) {
+      cout << "Var " << root->down->text << " does not exist";
+      exit(-1);
+    }
+    Vector* vec = dynamic_cast<Vector*>(it->second);
+    if (not vec) {
+      cout << "Push is only possible with vectors, but " << root->down->text << " is a " << typeid(*it->second).name() << endl;
+      exit(-1);
+    }
+    Data* data = getData(root->down->right->text);
+    Tube* tube = dynamic_cast<Tube*>(data);
+    if (not tube) {
+      cout << "You can only push tubes to a vector, but " << root->down->right->text << " is a " << typeid(*data).name() << endl;
+      exit(-1);
+    }
+    vec->push(*tube);
+  }
+  else {//WHILE
+    AST* condition = root->down;
+    AST* listInstructions = condition->right;
+    while (evaluateBoolean(condition)) {
+      executeList(listInstructions);
     }
   }
 }
