@@ -47,23 +47,33 @@ class Data {
 
 class SimpleData : public Data {
   protected:
-  uint diameter;
+  int diameter;
   public:
-  SimpleData(uint diameter) : diameter(diameter) {}
+  SimpleData(int diameter) : diameter(diameter) {
+    if (diameter < 0) {
+      cout << "Neither tubes nor connectors can have negative diameter: " << diameter << endl;
+      exit(-1);
+    }
+  }
   //SimpleData() : diameter(0) {}
   virtual ~SimpleData() {}
-  uint getDiameter() {
+  int getDiameter() {
     return diameter;
   }
 };
 
 class Tube : public SimpleData {
-  uint length;
+  int length;
   public:
-  Tube(uint length, uint diameter) : length(length), SimpleData(diameter) {}
+  Tube(int length, int diameter) : length(length), SimpleData(diameter) {
+    if (length < 0) {
+      cout << "Tubes can't have negative length: " << length << endl;
+      exit(-1);
+    }
+  }
   //Tube() : length(0) {}
   
-  uint getLength() {
+  int getLength() {
     return length;
   }
   Data* clone() {
@@ -78,7 +88,7 @@ class Tube : public SimpleData {
 
 class Connector : public SimpleData {
   public:
-  Connector(uint diameter) : SimpleData(diameter) {}
+  Connector(int diameter) : SimpleData(diameter) {}
   
   Data* clone() {
     return new Connector(diameter);
@@ -91,11 +101,15 @@ class Connector : public SimpleData {
 
 class Vector : public Data {
   Tube* vec;
-  uint size;
-  uint limit;
+  int size;
+  int limit;
   
   public:
-  Vector(uint limit) : limit(limit), size(0) {
+  Vector(int limit) : limit(limit), size(0) {
+    if (limit <= 0) {
+      cout << "Invalid vector limit: " << limit << ". It must be at least one or more" << endl;
+      exit(-1);
+    }
     //vec = new Tube[limit];
     vec = (Tube*)malloc(limit*sizeof(Tube));
   }
@@ -110,7 +124,7 @@ class Vector : public Data {
   bool empty() {
     return size == 0;;
   }
-  uint length() {
+  int length() {
     return size;
   }
   void push(const Tube& tube) {
@@ -142,7 +156,7 @@ class Vector : public Data {
   
   void print() {
     cout << "Vector of tubes: " << endl;
-    for (uint i = 0; i < size; ++i) {
+    for (int i = 0; i < size; ++i) {
       cout << "\t";
       vec[i].print();
     }
