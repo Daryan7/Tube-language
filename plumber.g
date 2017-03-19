@@ -24,6 +24,29 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
 
+class Exception {
+    string message;
+    AST* motive;
+public:
+    Exception(string message) : motive(NULL), message(message) {}
+
+    void setMotive(AST* tree) {
+        motive = tree;
+    }
+
+    bool haveMotive() {
+        return motive != NULL;
+    }
+
+    AST* getMotive() {
+        return motive;
+    }
+
+    string getMessage() {
+        return message;
+    }
+};
+
 class Data {
 public:
     virtual void print() = 0;
@@ -37,8 +60,7 @@ protected:
 public:
     SimpleData(int diameter) : diameter(diameter) {
         if (diameter < 0) {
-            cout << "Neither tubes nor connectors can have negative diameter: " << diameter << endl;
-            exit(-1);
+            throw Exception("Neither tubes nor connectors can have negative diameter: " + diameter);
         }
     }
     //SimpleData() : diameter(0) {}
@@ -53,8 +75,7 @@ class Tube : public SimpleData {
 public:
     Tube(int length, int diameter) : length(length), SimpleData(diameter) {
         if (length < 0) {
-            cout << "Tubes can't have negative length: " << length << endl;
-            exit(-1);
+            throw Exception("Tubes can't have negative length: " + to_string(length));
         }
     }
     //Tube() : length(0) {}
@@ -93,8 +114,7 @@ class Vector : public Data {
 public:
     Vector(int limit) : limit(limit), size(0) {
         if (limit <= 0) {
-            cout << "Invalid vector limit: " << limit << ". It must be at least one or more" << endl;
-            exit(-1);
+            throw Exception("Invalid vector limit: " + to_string(limit) + ". It must be at least one or more");
         }
         //vec = new Tube[limit];
         vec = (Tube*)malloc(limit*sizeof(Tube));
@@ -120,8 +140,7 @@ public:
             ++size;
         }
         else {
-            cerr << "Trying to push a full tube vector" << endl;
-            exit(-1);
+            throw Exception("Trying to push a full tube vector");
         }
     }
     Tube* pop() {
@@ -129,8 +148,7 @@ public:
             --size;
             return (Tube*)vec[size].clone();
         }
-        cout << "Trying to pop an empty tube vector" << endl;
-        exit(-1);
+        throw Exception("Trying to pop an empty tube vector");
     }
 
     Data* clone() {
@@ -242,8 +260,7 @@ void ASTPrint(AST *a) {
 inline Data* getData(const string& varName) {
     Iterator it = vars.find(varName);
     if (it == vars.end()) {
-        cout << "Var " << varName << " does not exist" << endl;
-        exit(-1);
+        throw Exception("Var " + varName + " does not exist");
     }
     return it->second;
 }
@@ -251,8 +268,7 @@ inline Data* getData(const string& varName) {
 inline Iterator getDataIterator(const string& varName) {
     Iterator it = vars.find(varName);
     if (it == vars.end()) {
-        cout << "Var " << varName << " does not exist" << endl;
-        exit(-1);
+        throw Exception("Var " + varName + " does not exist");
     }
     return it;
 }
@@ -271,8 +287,7 @@ inline uint getLength(AST* child) {
     Tube* tube = dynamic_cast<Tube*>(data);
     if (tube) return tube->getLength();
     else {
-        cout << "Wrong type, only tubes have length but " << child->text << " is a " << typeid(*data).name() << " instance" << endl;
-        exit(-1);
+        throw Exception("Wrong type, only tubes have length but " + child->text + " is a " + typeid(*data).name() + " instance");
     }
 }
 
@@ -281,8 +296,7 @@ inline uint getDiameter(AST* child) {
     SimpleData* simpleData = dynamic_cast<SimpleData*>(data);
     if (data) return simpleData->getDiameter();
     else {
-        cout << "Wrong type, only tubes and connectors have diameter but " << child->text << " is a " << typeid(*data).name() << " instance" << endl;
-        exit(-1);
+        throw Exception("Wrong type, only tubes and connectors have diameter but " + child->text + " is a " + typeid(*data).name() + " instance");
     }
 }
 
@@ -323,8 +337,7 @@ bool evaluateBoolean(AST* root) {
         Data* data = getData(root->down->text);
         Vector* vec = dynamic_cast<Vector*>(data);
         if (not vec) {
-            cout << root->down->text << " is a " << typeid(*data).name() << ", so FULL can't be applied" << endl;
-            exit(-1);
+            throw Exception(root->down->text + " is a " + typeid(*data).name() + ", so FULL can't be applied");
         }
         return vec->full();
     }
@@ -332,8 +345,7 @@ bool evaluateBoolean(AST* root) {
         Data* data = getData(root->down->text);
         Vector* vec = dynamic_cast<Vector*>(data);
         if (not vec) {
-            cout << root->down->text << " is a " << typeid(*data).name() << ", so EMPTY can't be applied" << endl;
-            exit(-1);
+            throw Exception(root->down->text + " is a " + typeid(*data).name() + ", so EMPTY can't be applied");
         }
         return vec->empty();
     }
@@ -356,8 +368,7 @@ Connector* getConnector(AST* root, Iterator* idIterator) {
         Iterator it = getDataIterator(root->text);
         Connector* connector = dynamic_cast<Connector*>(it->second);
         if (not connector) {
-            cout << "Variable " << root->text << " is a " << typeid(*it->second).name() << " but a connector was requested" << endl;
-            exit(-1);
+            throw Exception("Variable " + root->text + " is a " + typeid(*it->second).name() + " but a connector was requested");
         }
         if (idIterator != NULL) *idIterator = it;
         return connector;
@@ -383,8 +394,7 @@ Tube* getTube(AST* root, Iterator* idIterator) {
         Iterator it = getDataIterator(root->text);
         Tube* tube = dynamic_cast<Tube*>(it->second);
         if (not tube) {
-            cout << "Variable " << root->text << " is a " << typeid(*it->second).name() << " but a tube was requested" << endl;
-            exit(-1);
+            throw Exception("Variable " + root->text + " is a " + typeid(*it->second).name() + " but a tube was requested");
         }
         if (idIterator != NULL) *idIterator = it;
         return tube;
@@ -404,8 +414,7 @@ Tube* mergeTubes(AST* root) {
     Tube* tube1 = getTube(tube1AST, &itTube1);
     Tube* tube2 = getTube(tube2AST, &itTube2);
     if (tube1 == tube2) {
-        cout << "Can't merge a tube with itself" << endl;
-        exit(-1);
+        throw Exception("Can't merge a tube with itself");
     }
     Connector* connector = getConnector(connectorAST, &itConnector);
 
@@ -414,11 +423,10 @@ Tube* mergeTubes(AST* root) {
     diameterT2 = tube2->getDiameter();
     diameterC = connector->getDiameter();
     if (not (diameterT1 == diameterT2 and diameterT1 == diameterC)) {
-        cout << "Merging tubes require equal diameters for all arguments, but this was provided: " << endl;
-        cout << tube1AST->text << ", diameter " << diameterT1 << endl;
-        cout << connectorAST->text << ", diameter " << diameterC << endl;
-        cout << tube2AST->text << ", diameter " << diameterT2 << endl;
-        exit(-1);
+        throw Exception("Merging tubes require equal diameters for all arguments, but this was provided: \n"
+                + tube1AST->text + ", diameter " + to_string(diameterT1) + "\n"
+                + connectorAST->text + ", diameter " + to_string(diameterC) + "\n"
+                + tube2AST->text + ", diameter " + to_string(diameterT2) + "\n");
     }
 
     Tube* ret = new Tube(tube1->getLength()+tube2->getLength(), diameterC);
@@ -484,8 +492,7 @@ void execute(AST* root) {
         Data* data = getData(root->down->text);
         Vector* vec = dynamic_cast<Vector*>(data);
         if (not vec) {
-            cout << "Pop is only possible with vectors, but " << root->down->text << " is a " << typeid(*data).name() << endl;
-            exit(-1);
+            throw Exception("Pop is only possible with vectors, but " + root->down->text + " is a " + typeid(*data).name());
         }
         insertData(vec->pop(), root->down->right->text);
     }
@@ -493,14 +500,12 @@ void execute(AST* root) {
         Data* data = getData(root->down->text);
         Vector* vec = dynamic_cast<Vector*>(data);
         if (not vec) {
-            cout << "Push is only possible with vectors, but " << root->down->text << " is a " << typeid(*data).name() << endl;
-            exit(-1);
+            throw Exception("Push is only possible with vectors, but " + root->down->text + " is a " + typeid(*data).name());
         }
         data = getData(root->down->right->text);
         Tube* tube = dynamic_cast<Tube*>(data);
         if (not tube) {
-            cout << "You can only push tubes to a vector, but " << root->down->right->text << " is a " << typeid(*data).name() << endl;
-            exit(-1);
+            throw Exception("You can only push tubes to a vector, but " + root->down->right->text + " is a " + typeid(*data).name());
         }
         vec->push(*tube);
     }
@@ -516,7 +521,14 @@ void execute(AST* root) {
 void executeList(AST* root) {
     AST* child = root->down;
     while (child != NULL) {
-        execute(child);
+        try {
+            execute(child);
+        }
+        catch (Exception& exception) {
+            if (not exception.haveMotive()) exception.setMotive(child);
+            throw exception;
+        }
+
         child = child->right;
     }
 }
@@ -525,8 +537,16 @@ int main() {
     AST *root = NULL;
     ANTLR(plumber(&root), stdin);
     //ASTPrint(root);
-    executeList(root);
-
+    try {
+        executeList(root);
+    }
+    catch (Exception& exception) {
+        cerr << "Exception caught during execution of the next instruction: " << endl;
+        ASTPrint(exception.getMotive());
+        cerr << endl << "The exception was: " << endl;
+        cerr << exception.getMessage() << endl << endl;
+    }
+    cout << "Execution finished, final results: " << endl;
     for (pair<const string, Data*>& var : vars) {
         cout << var.first << " is a ";
         var.second->print();

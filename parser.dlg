@@ -37,6 +37,29 @@ void zzcr_attr(Attrib *attr, int type, char *text);
 #define zzcr_ast(as,attr,ttype,textt) as=createASTnode(attr,ttype,textt)
 AST* createASTnode(Attrib* attr, int ttype, char *textt);
 
+class Exception {
+  string message;
+  AST* motive;
+  public:
+  Exception(string message) : motive(NULL), message(message) {}
+  
+  void setMotive(AST* tree) {
+    motive = tree;
+  }
+  
+  bool haveMotive() {
+    return motive != NULL;
+  }
+  
+  AST* getMotive() {
+    return motive;
+  }
+  
+  string getMessage() {
+    return message;
+  }
+};
+
 class Data {
   public:
   virtual void print() = 0;
@@ -50,8 +73,7 @@ class SimpleData : public Data {
   public:
   SimpleData(int diameter) : diameter(diameter) {
     if (diameter < 0) {
-      cout << "Neither tubes nor connectors can have negative diameter: " << diameter << endl;
-      exit(-1);
+      throw Exception("Neither tubes nor connectors can have negative diameter: " + diameter);
     }
   }
   //SimpleData() : diameter(0) {}
@@ -66,8 +88,7 @@ class Tube : public SimpleData {
   public:
   Tube(int length, int diameter) : length(length), SimpleData(diameter) {
     if (length < 0) {
-      cout << "Tubes can't have negative length: " << length << endl;
-      exit(-1);
+      throw Exception("Tubes can't have negative length: " + to_string(length));
     }
   }
   //Tube() : length(0) {}
@@ -106,8 +127,7 @@ class Vector : public Data {
   public:
   Vector(int limit) : limit(limit), size(0) {
     if (limit <= 0) {
-      cout << "Invalid vector limit: " << limit << ". It must be at least one or more" << endl;
-      exit(-1);
+      throw Exception("Invalid vector limit: " + to_string(limit) + ". It must be at least one or more");
     }
     //vec = new Tube[limit];
     vec = (Tube*)malloc(limit*sizeof(Tube));
@@ -133,8 +153,7 @@ class Vector : public Data {
       ++size;
     }
     else {
-      cerr << "Trying to push a full tube vector" << endl;
-      exit(-1);
+      throw Exception("Trying to push a full tube vector");
     }
   }
   Tube* pop() {
@@ -142,8 +161,7 @@ class Vector : public Data {
       --size;
       return (Tube*)vec[size].clone();
     }
-    cout << "Trying to pop an empty tube vector" << endl;
-    exit(-1);
+    throw Exception("Trying to pop an empty tube vector");
   }
   
   Data* clone() {
